@@ -1,1 +1,158 @@
-#Database schema
+// Database schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  username  String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  sessions Session[]
+  messages Message[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String?
+  sessionId String   @unique
+  context   Json     @default("{}")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expiresAt DateTime?
+
+  // Relationships
+  user     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([sessionId])
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Message {
+  id          String      @id @default(cuid())
+  sessionId   String
+  userId      String?
+  content     String
+  type        MessageType @default(USER)
+  intent      String?
+  entities    Json        @default("[]")
+  confidence  Float?
+  response    String?
+  metadata    Json        @default("{}")
+  createdAt   DateTime    @default(now())
+
+  // Relationships
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([intent])
+  @@map("messages")
+}
+
+model Intent {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  patterns    String[]
+  responses   String[]
+  entities    String[]
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  examples IntentExample[]
+
+  @@index([name])
+  @@map("intents")
+}
+
+model IntentExample {
+  id       String @id @default(cuid())
+  intentId String
+  text     String
+  entities Json   @default("[]")
+
+  // Relationships
+  intent Intent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@index([intentId])
+  @@map("intent_examples")
+}
+
+model Entity {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String   // e.g., "text", "number", "date", "email"
+  values      String[] // Possible values for enum-type entities
+  synonyms    Json     @default("{}")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@map("entities")
+}
+
+model ConversationFlow {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  steps       Json     @default("[]")
+  conditions  Json     @default("{}")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@map("conversation_flows")
+}
+
+model Analytics {
+  id          String   @id @default(cuid())
+  sessionId   String
+  event       String   // e.g., "message_sent", "intent_recognized", "fallback_triggered"
+  data        Json     @default("{}")
+  timestamp   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([event])
+  @@index([timestamp])
+  @@map("analytics")
+}
+
+model Configuration {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+  @@map("configurations")
+}
+
+enum MessageType {
+  USER
+  BOT
+  SYSTEM
+}
